@@ -22,9 +22,10 @@ html{scroll-behavior:smooth}
 body{background:var(--bg);color:var(--ink);font-family:'Jost',sans-serif;font-weight:300;min-height:100vh;overflow-x:hidden}
 
 /* ── HEADER ── */
-header{background:var(--ink);color:var(--bg);padding:36px 64px 32px;position:relative;overflow:hidden}
+header{background:var(--ink);color:var(--bg);padding:28px 64px 24px;position:relative;overflow:hidden}
 header::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(255,255,255,.025) 40px),repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(255,255,255,.025) 40px);pointer-events:none}
-.header-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:32px;flex-wrap:wrap;position:relative;z-index:1}
+.header-inner{max-width:1440px;margin:0 auto;display:flex;flex-direction:column;gap:20px;position:relative;z-index:1}
+.header-top{display:flex;align-items:center;justify-content:space-between;gap:16px}
 .brand-eye{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:4px;text-transform:uppercase;color:rgba(255,255,255,.35);margin-bottom:6px}
 .brand-title{font-family:'Cormorant Garamond',serif;font-size:clamp(32px,4vw,56px);font-weight:700;line-height:.9;letter-spacing:-1px;color:#fff}
 .brand-title em{font-style:italic;color:rgba(255,255,255,.5)}
@@ -187,12 +188,14 @@ main{max-width:1440px;margin:0 auto;padding:40px 64px 100px}
 <!-- ══ HEADER ══════════════════════════════════════════════════════ -->
 <header>
   <div class="header-inner">
-    <div class="brand">
-      <div class="brand-eye">// Tool Astrofoto</div>
-      <h1 class="brand-title">Tool<br><em>Astro</em>Foto</h1>
+    <div class="header-top">
+      <div class="brand">
+        <div class="brand-eye">// Tool Astrofoto</div>
+        <h1 class="brand-title">Tool<br><em>Astro</em>Foto</h1>
+      </div>
     </div>
     <div class="header-chips">
-      <div class="chip interactive" title="Seleziona camera">
+      <div class="chip interactive">
         <span class="chip-lbl">Camera</span>
         <span class="chip-val">
           <select id="cameraSelect">
@@ -205,12 +208,52 @@ main{max-width:1440px;margin:0 auto;padding:40px 64px 100px}
         <span class="chip-lbl">Sensore</span>
         <span class="chip-val" id="sensorInfo">APS-C · 23.5×15.6mm</span>
       </div>
-      <div class="chip">
-        <span class="chip-lbl">Pixel</span>
-        <span class="chip-val" id="pixelInfo">3.92 µm · 6000×4000</span>
+      <div class="chip interactive">
+        <span class="chip-lbl">Tipo oggetto</span>
+        <span class="chip-val">
+          <select id="filterType">
+            <option value="all">Tutti</option>
+            <option value="nebula">Nebulose</option>
+            <option value="galaxy">Galassie</option>
+            <option value="cluster">Ammassi</option>
+            <option value="planet">Pianeti</option>
+            <option value="double">Doppie</option>
+          </select>
+        </span>
+      </div>
+      <div class="chip interactive">
+        <span class="chip-lbl">Focale</span>
+        <span class="chip-val">
+          <select id="filterFocal">
+            <option value="0">Tutte</option>
+            <option value="135">135mm</option>
+            <option value="336">336mm</option>
+            <option value="750">750mm</option>
+            <option value="1085">1085mm</option>
+            <option value="1625">1625mm</option>
+          </select>
+        </span>
+      </div>
+      <div class="chip interactive">
+        <span class="chip-lbl">Filtro</span>
+        <span class="chip-val">
+          <select id="filterLx">
+            <option value="0">Nessuno</option>
+            <option value="1">L-Extreme compatibile</option>
+          </select>
+        </span>
+      </div>
+      <div class="chip interactive">
+        <span class="chip-lbl">Ordina per</span>
+        <span class="chip-val">
+          <select id="filterSort">
+            <option value="alt">Altitudine</option>
+            <option value="mag">Magnitudine</option>
+          </select>
+        </span>
       </div>
       <div class="chip">
-        <span class="chip-lbl">Catalogo</span>
+        <span class="chip-lbl">Visibili</span>
         <span class="chip-val" id="totCount">…</span>
       </div>
     </div>
@@ -323,6 +366,7 @@ const COUNTRIES = [
 let activeLat=45.5, activeLon=10.0;
 let timeStart=20, timeEnd=24, activeMonth=1;
 let activeFilt={type:null,focal:null,lx:false};
+let activeSortMode='alt';
 
 // ═══════════════════════════════════════════════════════
 // ASTRONOMY MATH
@@ -1423,6 +1467,25 @@ function initCountrySelect(){
   });
 }
 
+function initGlobalFilters(){
+  document.getElementById('filterType').addEventListener('change',e=>{
+    activeFilt.type=e.target.value==='all'?null:e.target.value;
+    refreshAll();
+  });
+  document.getElementById('filterFocal').addEventListener('change',e=>{
+    activeFilt.focal=+e.target.value||null;
+    refreshAll();
+  });
+  document.getElementById('filterLx').addEventListener('change',e=>{
+    activeFilt.lx=e.target.value==='1';
+    refreshAll();
+  });
+  document.getElementById('filterSort').addEventListener('change',e=>{
+    activeSortMode=e.target.value;
+    refreshAll();
+  });
+}
+
 function initCameraSelect(){
   const sel=document.getElementById('cameraSelect');
   sel.addEventListener('change',()=>{
@@ -1436,7 +1499,6 @@ function initCameraSelect(){
 function updateCameraInfo(){
   const cam=activeCamera;
   document.getElementById('sensorInfo').textContent=`${cam.type} · ${cam.w}×${cam.h}mm`;
-  document.getElementById('pixelInfo').textContent=`${cam.px}µm · ${cam.cols}×${cam.rows}`;
 }
 
 function initSliders(){
@@ -1474,7 +1536,7 @@ function initMonthNav(){
       btn.classList.add('active');
       document.querySelectorAll('.month-sec').forEach(s=>s.classList.remove('active'));
       const sec=document.getElementById('sec-'+m.n);
-      if(sec){sec.classList.add('active');activeMonth=m.n;resetFilters(m.n);renderGrid(m.n);}
+      if(sec){sec.classList.add('active');activeMonth=m.n;renderGrid(m.n);}
     });
     nav.appendChild(btn);
 
@@ -1491,48 +1553,8 @@ function initMonthNav(){
       </div>
     </div>
     <div class="vis-bar" id="vbar-${m.n}">Calcolo altitudini…</div>
-    <div class="toolbar" id="tb-${m.n}">
-      <span class="tb-lbl">Tipo:</span>
-      <button class="pill on" data-f="all">Tutti</button>
-      ${Object.entries(TYPE_N).map(([k,v])=>`<button class="pill" data-f="${k}">${v}</button>`).join('')}
-      <div class="tb-sep"></div>
-      <span class="tb-lbl">Focale:</span>
-      ${FOCALS.map(f=>`<button class="pill" data-focal="${f}">${f}mm</button>`).join('')}
-      <div class="tb-sep"></div>
-      <button class="pill" id="lxbtn-${m.n}">⬡ L-Extreme</button>
-      <div class="tb-sep"></div>
-      <button class="pill" id="srt-${m.n}">↓ Altitudine</button>
-    </div>
     <div class="obj-grid" id="grid-${m.n}"></div>`;
     main.appendChild(sec);
-
-    // Filter listeners
-    sec.querySelectorAll('[data-f]').forEach(b=>b.addEventListener('click',()=>{
-      sec.querySelectorAll('[data-f]').forEach(x=>x.classList.remove('on'));
-      b.classList.add('on');
-      activeFilt.type=b.dataset.f==='all'?null:b.dataset.f;
-      applyFilters(m.n);
-    }));
-    sec.querySelectorAll('[data-focal]').forEach(b=>b.addEventListener('click',()=>{
-      const was=b.classList.contains('on');
-      sec.querySelectorAll('[data-focal]').forEach(x=>x.classList.remove('on'));
-      activeFilt.focal=was?null:+b.dataset.focal;
-      if(!was)b.classList.add('on');
-      applyFilters(m.n);
-    }));
-    const lxBtn=sec.querySelector(`#lxbtn-${m.n}`);
-    lxBtn.addEventListener('click',()=>{
-      activeFilt.lx=!activeFilt.lx;
-      lxBtn.classList.toggle('lx-on',activeFilt.lx);
-      lxBtn.textContent=activeFilt.lx?'⬡ L-Extreme ON':'⬡ L-Extreme';
-      applyFilters(m.n);
-    });
-    let srtMode='alt';
-    sec.querySelector(`#srt-${m.n}`).addEventListener('click',e=>{
-      srtMode=srtMode==='alt'?'mag':'alt';
-      e.target.textContent=srtMode==='alt'?'↓ Altitudine':'↓ Magnitudine';
-      renderGrid(m.n,srtMode);
-    });
   });
 }
 
@@ -1597,14 +1619,14 @@ function buildCard(obj,month){
   const canvas=d.querySelector('canvas');
   const localSrc=LOCAL_IMGS[obj.id];
   if(localSrc){
-    const img=new Image();
-    img.onload=()=>{
-      const ctx=canvas.getContext('2d');
-      canvas.width=canvas.offsetWidth||280; canvas.height=canvas.offsetHeight||175;
-      ctx.drawImage(img,0,0,canvas.width,canvas.height);
-    };
-    img.onerror=()=>requestAnimationFrame(()=>renderCanvas(canvas,obj,false));
-    img.src=localSrc;
+    // Use <img> tag overlaid on canvas for reliable display
+    const imgEl=document.createElement('img');
+    imgEl.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .4s';
+    imgEl.onload=()=>{imgEl.style.opacity='1';};
+    imgEl.onerror=()=>{imgEl.remove();requestAnimationFrame(()=>renderCanvas(canvas,obj,false));};
+    imgEl.src=localSrc;
+    d.querySelector('.card-canvas-wrap').appendChild(imgEl);
+    requestAnimationFrame(()=>renderCanvas(canvas,obj,false));
   } else {
     requestAnimationFrame(()=>renderCanvas(canvas,obj,false));
   }
@@ -1623,15 +1645,23 @@ function openModal(obj,month){
   const camBest=bestFocalsForCamera(obj);
   const extra=OBJ_INFO[obj.id]||{};
 
-  // Canvas / real image
+  // Canvas + real image overlay for modal
   const mc=document.getElementById('modalCanvas');
+  renderCanvas(mc,obj,true);
   const mSrc=LOCAL_IMGS[obj.id];
   if(mSrc){
-    const mi=new Image();
-    mi.onload=()=>{const ctx=mc.getContext('2d');mc.width=880;mc.height=320;ctx.drawImage(mi,0,0,880,320);};
-    mi.onerror=()=>renderCanvas(mc,obj,true);
-    mi.src=mSrc;
-  } else { renderCanvas(mc,obj,true); }
+    const mWrap=document.querySelector('.modal-canvas-wrap');
+    let mImg=mWrap.querySelector('.modal-real-img');
+    if(!mImg){mImg=document.createElement('img');mImg.className='modal-real-img';mImg.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .4s';mWrap.appendChild(mImg);}
+    mImg.style.opacity='0';
+    mImg.onload=()=>{mImg.style.opacity='1';};
+    mImg.onerror=()=>{mImg.style.opacity='0';};
+    mImg.src=mSrc;
+  } else {
+    const mWrap=document.querySelector('.modal-canvas-wrap');
+    const mImg=mWrap.querySelector('.modal-real-img');
+    if(mImg) mImg.style.opacity='0';
+  }
 
   // Badges
   document.getElementById('modalBadges').innerHTML=`
@@ -1692,7 +1722,8 @@ function closeModal(){
 // ═══════════════════════════════════════════════════════
 // RENDER GRID
 // ═══════════════════════════════════════════════════════
-function renderGrid(n,srtMode='alt'){
+function renderGrid(n){
+  const srtMode=activeSortMode||'alt';
   const g=document.getElementById('grid-'+n);
   if(!g)return;
   g.innerHTML='';
@@ -1763,8 +1794,6 @@ function refreshAll(){
   const n=+sec.id.replace('sec-','');
   renderGrid(n);
 }
-
-// Update total count
 function updateTotCount(){
   const unique=new Set(OBJ.filter(isCameraCompatible).map(o=>o.id)).size;
   document.getElementById('totCount').textContent=`${unique} oggetti`;
@@ -1775,6 +1804,7 @@ function updateTotCount(){
 // ═══════════════════════════════════════════════════════
 initCountrySelect();
 initCameraSelect();
+initGlobalFilters();
 initSliders();
 initMonthNav();
 updateTotCount();
