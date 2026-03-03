@@ -6,36 +6,23 @@ on:
 jobs:
   download:
     runs-on: ubuntu-latest
-
     permissions:
       contents: write
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Create images folder
-        run: mkdir -p assets/images
+      - run: mkdir -p assets/images
 
-      - name: Download M42
-        run: |
-          curl -L -o assets/images/m42.jpg \
-          https://upload.wikimedia.org/wikipedia/commons/d/d2/Orion_Nebula_-_Hubble_2006_mosaic_18000.jpg
+      - run: curl -L https://upload.wikimedia.org/wikipedia/commons/d/d2/Orion_Nebula_-_Hubble_2006_mosaic_18000.jpg -o assets/images/m42.jpg || true
 
-      - name: Download M31
-        run: |
-          curl -L -o assets/images/m31.jpg \
-          https://upload.wikimedia.org/wikipedia/commons/a/a4/Andromeda_Galaxy_(with_h-alpha).jpg
+      - run: curl -L https://upload.wikimedia.org/wikipedia/commons/a/a4/Andromeda_Galaxy_(with_h-alpha).jpg -o assets/images/m31.jpg || true
 
-      - name: Download M45
-        run: |
-          curl -L -o assets/images/m45.jpg \
-          https://upload.wikimedia.org/wikipedia/commons/4/4e/Pleiades_large.jpg
+      - run: curl -L https://upload.wikimedia.org/wikipedia/commons/4/4e/Pleiades_large.jpg -o assets/images/m45.jpg || true
 
-      - name: Commit images
-        run: |
+      - run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
           git add assets/images
-          git commit -m "Auto download astro images" || echo "No changes"
+          git commit -m "Auto download astro images" || true
           git push
