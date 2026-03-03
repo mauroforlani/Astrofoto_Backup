@@ -1,4 +1,4 @@
-name: Download Astro Images v3 (NASA)
+name: Download Astro Images v4 (NASA fixed)
 
 on:
   workflow_dispatch:
@@ -13,281 +13,234 @@ jobs:
         run: |
           mkdir -p img
           python3 << 'PYEOF'
-          import urllib.request, json, os, time
+import urllib.request, json, os, time
 
-          os.makedirs("img", exist_ok=True)
+os.makedirs("img", exist_ok=True)
 
-          def nasa_search(query, dest):
-              """Search NASA Images API and download first result"""
-              if os.path.exists(dest) and os.path.getsize(dest) > 5000:
-                  print(f"  skip {dest}")
-                  return True
-              try:
-                  q = urllib.request.quote(query)
-                  url = f"https://images-api.nasa.gov/search?q={q}&media_type=image&page_size=1"
-                  req = urllib.request.Request(url, headers={"User-Agent": "AstrofotoTool/1.0"})
-                  with urllib.request.urlopen(req, timeout=15) as r:
-                      data = json.loads(r.read())
-                  items = data.get("collection", {}).get("items", [])
-                  if not items:
-                      print(f"  ✗ {dest} - no results for: {query}")
-                      return False
-                  # Get asset manifest
-                  nasa_id = items[0]["data"][0]["nasa_id"]
-                  asset_url = f"https://images-api.nasa.gov/asset/{urllib.request.quote(nasa_id)}"
-                  req2 = urllib.request.Request(asset_url, headers={"User-Agent": "AstrofotoTool/1.0"})
-                  with urllib.request.urlopen(req2, timeout=15) as r2:
-                      assets = json.loads(r2.read())
-                  # Find largest jpg
-                  hrefs = [i["href"] for i in assets.get("collection", {}).get("items", [])
-                           if i["href"].lower().endswith((".jpg", ".jpeg"))]
-                  if not hrefs:
-                      print(f"  ✗ {dest} - no jpg in assets")
-                      return False
-                  # Prefer ~medium size
-                  img_url = sorted(hrefs)[0]
-                  for h in hrefs:
-                      if "medium" in h or "1024" in h or "800" in h:
-                          img_url = h; break
-                  req3 = urllib.request.Request(img_url, headers={"User-Agent": "AstrofotoTool/1.0"})
-                  with urllib.request.urlopen(req3, timeout=20) as r3:
-                      data = r3.read()
-                  if len(data) > 5000:
-                      with open(dest, "wb") as f:
-                          f.write(data)
-                      print(f"  ✓ {dest} ({len(data)//1024}KB) — {query}")
-                      return True
-                  else:
-                      print(f"  ✗ {dest} - file too small")
-                      return False
-              except Exception as e:
-                  print(f"  ✗ {dest} - {e}")
-                  return False
+def nasa_dl(obj_id, query):
+    dest = f"img/{obj_id}.jpg"
+    if os.path.exists(dest) and os.path.getsize(dest) > 5000:
+        print(f"  skip {obj_id}")
+        return True
+    try:
+        q = urllib.request.quote(query)
+        url = f"https://images-api.nasa.gov/search?q={q}&media_type=image&page_size=1"
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=15) as r:
+            data = json.loads(r.read())
+        items = data.get("collection", {}).get("items", [])
+        if not items:
+            print(f"  ✗ {obj_id} - no results: {query}")
+            return False
+        nasa_id = items[0]["data"][0]["nasa_id"]
+        asset_url = f"https://images-api.nasa.gov/asset/{urllib.request.quote(nasa_id)}"
+        req2 = urllib.request.Request(asset_url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req2, timeout=15) as r2:
+            assets = json.loads(r2.read())
+        hrefs = [i["href"] for i in assets.get("collection", {}).get("items", [])
+                 if i["href"].lower().endswith((".jpg", ".jpeg"))]
+        if not hrefs:
+            print(f"  ✗ {obj_id} - no jpg assets")
+            return False
+        img_url = hrefs[0]
+        for h in hrefs:
+            if "medium" in h or "1024" in h or "orig" in h:
+                img_url = h; break
+        req3 = urllib.request.Request(img_url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req3, timeout=20) as r3:
+            imgdata = r3.read()
+        if len(imgdata) > 5000:
+            with open(dest, "wb") as f:
+                f.write(imgdata)
+            print(f"  ✓ {obj_id} ({len(imgdata)//1024}KB)")
+            return True
+        print(f"  ✗ {obj_id} - too small")
+        return False
+    except Exception as e:
+        print(f"  ✗ {obj_id}: {e}")
+        return False
 
-          # Object ID -> NASA search query
-          OBJECTS = {
-            # NEBULOSE
-            "m42":      "Orion Nebula M42 Hubble",
-            "ic434":    "Horsehead Nebula IC434 Barnard 33",
-            "ngc1977":  "Running Man Nebula NGC1977",
-            "m78":      "M78 reflection nebula Orion",
-            "m1":       "Crab Nebula M1 supernova remnant",
-            "ngc2174":  "NGC2174 Monkey Head Nebula",
-            "ngc2244":  "Rosette Nebula NGC2244",
-            "ngc1499":  "California Nebula NGC1499",
-            "ic1805":   "Heart Nebula IC1805",
-            "ic1848":   "Soul Nebula IC1848",
-            "ngc2392":  "Eskimo Nebula NGC2392 Hubble",
-            "ngc7000":  "North America Nebula NGC7000",
-            "ic5070":   "Pelican Nebula IC5070",
-            "ngc6992":  "Veil Nebula NGC6992 Eastern",
-            "ngc6960":  "Western Veil Nebula NGC6960",
-            "ic5146":   "Cocoon Nebula IC5146",
-            "ngc6888":  "Crescent Nebula NGC6888",
-            "m57":      "Ring Nebula M57 Lyra Hubble",
-            "m27":      "Dumbbell Nebula M27",
-            "ngc6543":  "Cat Eye Nebula NGC6543 Hubble",
-            "ngc7293":  "Helix Nebula NGC7293",
-            "ngc6302":  "Bug Nebula NGC6302 Hubble",
-            "m8":       "Lagoon Nebula M8",
-            "m20":      "Trifid Nebula M20",
-            "m16":      "Eagle Nebula M16 Pillars of Creation",
-            "m17":      "Omega Nebula M17 Swan",
-            "ngc7635":  "Bubble Nebula NGC7635 Hubble",
-            "ngc281":   "Pacman Nebula NGC281",
-            "ngc6334":  "Cat Paw Nebula NGC6334",
-            "ngc6357":  "Lobster Nebula NGC6357",
-            "ic1396":   "Elephant Trunk Nebula IC1396",
-            "ngc7822":  "NGC7822 nebula Cepheus",
-            "ngc2070":  "Tarantula Nebula 30 Doradus",
-            "ic2177":   "Seagull Nebula IC2177",
-            "ngc1893":  "Tadpole Nebula IC410 NGC1893",
-            "sh2155":   "Cave Nebula Sh2-155",
-            "ngc40":    "NGC40 bow tie nebula",
-            "sh2240":   "Spaghetti Nebula Simeis 147",
-            "ngc896":   "Fish Head Nebula IC1795",
-            "ngc2068b": "Barnard Loop nebula Orion",
-            "ngc2264":  "Cone Nebula NGC2264",
-            "ngc2359":  "Thor Helmet Nebula NGC2359",
-            "sh2101":   "Tulip Nebula Sh2-101",
-            "ngc1333":  "NGC1333 reflection nebula",
-            "ngc2023":  "NGC2023 reflection nebula",
-            "ngc6820":  "NGC6820 nebula",
-            "ngc6334b": "NGC6334 Cat Paw",
-            "vdb1":     "VdB 142 Elephant trunk IC1396",
-            "sh2157":   "Lobster Claw Nebula Sh2-157",
-            "sh2132":   "Sh2-132 Lion Nebula",
-            "ngc2261":  "Hubble Variable Nebula NGC2261",
-            # GALASSIE
-            "m31":      "Andromeda Galaxy M31",
-            "m33":      "Triangulum Galaxy M33",
-            "ngc891":   "NGC891 edge on galaxy",
-            "m74":      "M74 spiral galaxy Pisces",
-            "m81":      "Bode Galaxy M81 Hubble",
-            "m82":      "Cigar Galaxy M82 Hubble",
-            "m51":      "Whirlpool Galaxy M51 Hubble",
-            "m101":     "Pinwheel Galaxy M101 Hubble",
-            "m63":      "Sunflower Galaxy M63",
-            "m64":      "Black Eye Galaxy M64 Hubble",
-            "ngc4565":  "Needle Galaxy NGC4565",
-            "ngc4631":  "Whale Galaxy NGC4631",
-            "ngc4038":  "Antennae Galaxies NGC4038 Hubble",
-            "m65m66":   "Leo Triplet M66 galaxy",
-            "ngc3628":  "NGC3628 Leo Triplet hamburger",
-            "m84virgo": "Virgo Cluster galaxies M84 M86",
-            "m87":      "M87 elliptical galaxy jet Hubble",
-            "m102":     "Spindle Galaxy NGC5866",
-            "m106":     "NGC4258 M106 galaxy Hubble",
-            "ngc5128":  "Centaurus A NGC5128 galaxy",
-            "ngc6946":  "Fireworks Galaxy NGC6946",
-            "ngc7331":  "NGC7331 spiral galaxy",
-            "ic342":    "IC342 hidden galaxy",
-            "ngc2903":  "NGC2903 spiral galaxy Leo",
-            "ngc4594":  "Sombrero Galaxy M104 Hubble",
-            "ngc253":   "Sculptor Galaxy NGC253",
-            "ngc2403":  "NGC2403 spiral galaxy Hubble",
-            "ngc4725":  "NGC4725 barred spiral galaxy",
-            "ngc2841":  "NGC2841 spiral galaxy",
-            "ngc7479":  "NGC7479 barred spiral galaxy",
-            "ngc7814":  "Little Sombrero NGC7814",
-            "ngc3521":  "NGC3521 flocculent spiral galaxy",
-            "ngc5055":  "NGC5055 M63 Sunflower galaxy",
-            "ngc4490":  "Cocoon Galaxy NGC4490",
-            "ngc5139":  "Omega Centauri globular cluster",
-            "ngc1232":  "NGC1232 face on galaxy",
-            "ngc300":   "NGC300 spiral galaxy Sculptor",
-            "ngc6744":  "NGC6744 spiral galaxy Pavo",
-            "ngc2976":  "NGC2976 dwarf galaxy M81 group",
-            "ngc3077":  "NGC3077 irregular galaxy",
-            "ngc4244":  "NGC4244 edge on spiral galaxy",
-            "ngc4559":  "NGC4559 spiral galaxy",
-            "ngc4649":  "NGC4649 M60 elliptical Hubble",
-            "ngc5907":  "NGC5907 needle galaxy",
-            "ngc4216":  "NGC4216 spiral galaxy Virgo",
-            "ngc1316":  "Fornax A NGC1316 galaxy",
-            "ngc4762":  "NGC4762 lenticular galaxy",
-            "m84virgo": "Virgo cluster M84 M86 galaxies",
-            "ngc772":   "NGC772 spiral galaxy",
-            "ngc247":   "NGC247 dwarf spiral galaxy",
-            "ngc4725":  "NGC4725 barred spiral",
-            # AMMASSI GLOBULARI
-            "m13":      "Hercules Globular Cluster M13 Hubble",
-            "m92":      "M92 globular cluster Hubble",
-            "m3":       "M3 globular cluster Hubble",
-            "m5":       "M5 globular cluster Hubble",
-            "m15":      "M15 globular cluster Hubble",
-            "m2":       "M2 globular cluster Hubble",
-            "m22":      "M22 globular cluster Sagittarius",
-            "m10":      "M10 globular cluster Hubble",
-            "m12":      "M12 globular cluster Ophiuchus",
-            "m4":       "M4 globular cluster Scorpius Hubble",
-            "m80":      "M80 globular cluster Hubble",
-            "ngc104":   "47 Tucanae NGC104 globular Hubble",
-            "ngc6397":  "NGC6397 globular cluster Hubble",
-            "m56":      "M56 globular cluster Lyra",
-            "m107":     "M107 globular cluster",
-            "m62":      "M62 globular cluster Hubble",
-            "m79":      "M79 globular cluster Hubble",
-            "ngc5024":  "M53 NGC5024 globular cluster",
-            "ngc6752":  "NGC6752 globular cluster",
-            # AMMASSI APERTI
-            "m45":      "Pleiades Seven Sisters star cluster",
-            "ngc869":   "Double Cluster Perseus h chi",
-            "ngc884b":  "Double Cluster NGC884 Perseus",
-            "ngc7789":  "Caroline Rose Cluster NGC7789",
-            "ngc457":   "Owl Cluster ET Cluster NGC457",
-            "m35":      "M35 open cluster Gemini",
-            "m36":      "M36 open cluster Auriga",
-            "m37":      "M37 open cluster Auriga",
-            "m38":      "M38 open cluster Auriga",
-            "m34":      "M34 open cluster Perseus",
-            "m11":      "Wild Duck Cluster M11",
-            "m41":      "M41 open cluster Canis Major",
-            "m50":      "M50 open cluster Monoceros",
-            "m52":      "M52 open cluster Cassiopeia",
-            "m67":      "M67 old open cluster Cancer",
-            "m44":      "Beehive Cluster M44 Praesepe",
-            "m47":      "M47 open cluster Puppis",
-            "m46":      "M46 open cluster Puppis",
-            "m48":      "M48 open cluster Hydra",
-            "m39":      "M39 open cluster Cygnus",
-            "m29":      "M29 open cluster Cygnus",
-            "m26":      "M26 open cluster Scutum",
-            "ngc752":   "NGC752 open cluster Andromeda",
-            "ngc2362":  "NGC2362 open cluster Canis Major",
-            "ngc6231":  "NGC6231 open cluster Scorpius",
-            "ngc6633":  "NGC6633 open cluster Ophiuchus",
-            # PIANETI
-            "luna":     "Moon full surface NASA",
-            "giove":    "Jupiter Great Red Spot NASA",
-            "saturno":  "Saturn rings NASA Cassini",
-            "marte":    "Mars planet surface NASA",
-            "venere":   "Venus planet NASA",
-            "urano":    "Uranus planet Voyager NASA",
-            "nettuno":  "Neptune planet Voyager NASA",
-            # STELLE DOPPIE
-            "albireo":  "Albireo double star beta Cygni",
-            "mizar":    "Mizar Alcor double star",
-            "epsilonlyrae": "Epsilon Lyrae double double star",
-            "etacas":   "Eta Cassiopeiae double star",
-          }
+# NASA API works best with short, common names or Hubble press release terms
+OBJECTS = {
+    # NEBULOSE — use Hubble press release names
+    "m42":      "Orion Nebula",
+    "ic434":    "Horsehead Nebula",
+    "ngc1977":  "Running Man Nebula",
+    "m78":      "M78 nebula",
+    "m1":       "Crab Nebula",
+    "ngc2174":  "Monkey Head Nebula",
+    "ngc2244":  "Rosette Nebula",
+    "ngc1499":  "California Nebula",
+    "ic1805":   "Heart Nebula",
+    "ic1848":   "Soul Nebula",
+    "ngc2261":  "Hubble Variable Nebula",
+    "ngc2392":  "Eskimo Nebula",
+    "ngc7000":  "North America Nebula",
+    "ic5070":   "Pelican Nebula",
+    "ngc6992":  "Veil Nebula",
+    "ngc6960":  "Witch Broom Nebula",
+    "ic5146":   "Cocoon Nebula",
+    "ngc6888":  "Crescent Nebula",
+    "m57":      "Ring Nebula",
+    "m27":      "Dumbbell Nebula",
+    "ngc6543":  "Cat Eye Nebula",
+    "ngc7293":  "Helix Nebula",
+    "ngc6302":  "Butterfly Nebula",
+    "m8":       "Lagoon Nebula",
+    "m20":      "Trifid Nebula",
+    "m16":      "Pillars of Creation",
+    "m17":      "Omega Nebula",
+    "ngc7635":  "Bubble Nebula",
+    "ngc281":   "Pacman Nebula",
+    "ngc6334":  "Cat Paw Nebula",
+    "ngc6357":  "War and Peace Nebula",
+    "ic1396":   "Elephant Trunk Nebula",
+    "ngc7822":  "NGC 7822",
+    "ngc2070":  "Tarantula Nebula",
+    "ic2177":   "Seagull Nebula",
+    "ngc1893":  "Tadpoles Nebula",
+    "sh2155":   "Cave Nebula",
+    "ngc40":    "Bow Tie Nebula",
+    "sh2240":   "Spaghetti Nebula",
+    "ngc896":   "Fish Head Nebula",
+    "ngc2068b": "Barnard Loop",
+    "ngc2264":  "Cone Nebula",
+    "ngc2359":  "Thor Helmet",
+    "sh2101":   "Tulip Nebula",
+    "ngc1333":  "NGC 1333 nebula",
+    "ngc2023":  "NGC 2023 nebula",
+    "ngc6820":  "NGC 6820 nebula",
+    "sh2132":   "Lion Nebula",
+    "vdb1":     "Elephant Trunk IC1396",
+    "sh2157":   "Lobster Claw Nebula",
+    "ngc2023":  "NGC 2023",
+    # GALASSIE
+    "m31":      "Andromeda Galaxy",
+    "m33":      "Triangulum Galaxy",
+    "ngc891":   "NGC 891 galaxy",
+    "m74":      "M74 spiral galaxy",
+    "m81":      "Bode Galaxy",
+    "m82":      "Cigar Galaxy",
+    "m51":      "Whirlpool Galaxy",
+    "m101":     "Pinwheel Galaxy",
+    "m63":      "Sunflower Galaxy",
+    "m64":      "Black Eye Galaxy",
+    "ngc4565":  "Needle Galaxy",
+    "ngc4631":  "Whale Galaxy",
+    "ngc4038":  "Antennae Galaxies",
+    "m65m66":   "Leo Triplet galaxies",
+    "ngc3628":  "Hamburger Galaxy",
+    "m84virgo": "Virgo Cluster",
+    "m87":      "M87 galaxy",
+    "m102":     "Spindle Galaxy",
+    "m106":     "NGC 4258 galaxy",
+    "ngc5128":  "Centaurus A galaxy",
+    "ngc6946":  "Fireworks Galaxy",
+    "ngc7331":  "NGC 7331 galaxy",
+    "ic342":    "IC 342 galaxy",
+    "ngc2903":  "NGC 2903 galaxy",
+    "ngc4594":  "Sombrero Galaxy",
+    "ngc253":   "Sculptor Galaxy",
+    "ngc2403":  "NGC 2403 galaxy",
+    "ngc247":   "NGC 247 galaxy",
+    "ngc4725":  "NGC 4725 galaxy",
+    "ngc2841":  "NGC 2841 galaxy",
+    "ngc7479":  "NGC 7479 galaxy",
+    "ngc7814":  "Little Sombrero galaxy",
+    "ngc3521":  "NGC 3521 galaxy",
+    "ngc5055":  "NGC 5055 galaxy",
+    "ngc4490":  "Cocoon Galaxy",
+    "ngc5139":  "Omega Centauri",
+    "ngc1232":  "NGC 1232 galaxy",
+    "ngc300":   "NGC 300 galaxy",
+    "ngc6744":  "NGC 6744 galaxy",
+    "ngc2976":  "NGC 2976 galaxy",
+    "ngc3077":  "NGC 3077 galaxy",
+    "ngc4244":  "NGC 4244 galaxy",
+    "ngc4559":  "NGC 4559 galaxy",
+    "ngc4649":  "NGC 4649 galaxy",
+    "ngc5907":  "NGC 5907 galaxy",
+    "ngc4216":  "NGC 4216 galaxy",
+    "ngc1316":  "Fornax A galaxy",
+    "ngc4762":  "NGC 4762 galaxy",
+    "ngc772":   "NGC 772 galaxy",
+    # AMMASSI GLOBULARI
+    "m13":      "Hercules Globular Cluster",
+    "m92":      "M92 globular cluster",
+    "m3":       "M3 globular cluster",
+    "m5":       "M5 globular cluster",
+    "m15":      "M15 globular cluster",
+    "m2":       "M2 globular cluster",
+    "m22":      "M22 globular cluster",
+    "m10":      "M10 globular cluster",
+    "m12":      "M12 globular cluster",
+    "m4":       "M4 globular cluster",
+    "m80":      "M80 globular cluster",
+    "ngc104":   "47 Tucanae",
+    "ngc6397":  "NGC 6397 globular",
+    "m56":      "M56 globular cluster",
+    "m107":     "M107 globular cluster",
+    "m62":      "M62 globular cluster",
+    "m79":      "M79 globular cluster",
+    "ngc5024":  "M53 globular cluster",
+    "ngc6752":  "NGC 6752 globular",
+    # AMMASSI APERTI
+    "m45":      "Pleiades",
+    "ngc869":   "Double Cluster Perseus",
+    "ngc884b":  "h Persei cluster",
+    "ngc7789":  "Caroline Rose Cluster",
+    "ngc457":   "ET Cluster",
+    "m35":      "M35 star cluster",
+    "m36":      "M36 star cluster",
+    "m37":      "M37 star cluster",
+    "m38":      "M38 star cluster",
+    "m34":      "M34 star cluster",
+    "m11":      "Wild Duck Cluster",
+    "m41":      "M41 star cluster",
+    "m50":      "M50 star cluster",
+    "m52":      "M52 star cluster",
+    "m67":      "M67 star cluster",
+    "m44":      "Beehive Cluster",
+    "m47":      "M47 star cluster",
+    "m46":      "M46 star cluster",
+    "m48":      "M48 star cluster",
+    "m39":      "M39 star cluster",
+    "m29":      "M29 star cluster",
+    "m26":      "M26 star cluster",
+    "ngc752":   "NGC 752 star cluster",
+    "ngc2362":  "NGC 2362 cluster",
+    "ngc6231":  "NGC 6231 cluster",
+    "ngc6633":  "NGC 6633 cluster",
+    # PIANETI
+    "luna":     "Moon",
+    "giove":    "Jupiter",
+    "saturno":  "Saturn",
+    "marte":    "Mars",
+    "venere":   "Venus",
+    "urano":    "Uranus",
+    "nettuno":  "Neptune",
+    # STELLE DOPPIE
+    "albireo":      "Albireo star",
+    "mizar":        "Mizar star",
+    "epsilonlyrae": "Epsilon Lyrae",
+    "etacas":       "double star",
+}
 
-          ok, fail = 0, 0
-          for obj_id, query in OBJECTS.items():
-              dest = f"img/{obj_id}.jpg"
-              if nasa_search(query, dest):
-                  ok += 1
-              else:
-                  fail += 1
-              time.sleep(0.3)
+ok = fail = 0
+for obj_id, query in OBJECTS.items():
+    if nasa_dl(obj_id, query):
+        ok += 1
+    else:
+        fail += 1
+    time.sleep(0.3)
 
-          print(f"\n=== TOTALE: OK={ok} FAIL={fail} ===")
-
-          def nasa_search(query, dest):
-              if os.path.exists(dest) and os.path.getsize(dest) > 5000:
-                  print(f"  skip {dest}")
-                  return True
-              try:
-                  q = urllib.request.quote(query)
-                  url = f"https://images-api.nasa.gov/search?q={q}&media_type=image&page_size=1"
-                  req = urllib.request.Request(url, headers={"User-Agent": "AstrofotoTool/1.0"})
-                  with urllib.request.urlopen(req, timeout=15) as r:
-                      data = json.loads(r.read())
-                  items = data.get("collection", {}).get("items", [])
-                  if not items:
-                      print(f"  ✗ {dest} - no results")
-                      return False
-                  nasa_id = items[0]["data"][0]["nasa_id"]
-                  asset_url = f"https://images-api.nasa.gov/asset/{urllib.request.quote(nasa_id)}"
-                  req2 = urllib.request.Request(asset_url, headers={"User-Agent": "AstrofotoTool/1.0"})
-                  with urllib.request.urlopen(req2, timeout=15) as r2:
-                      assets = json.loads(r2.read())
-                  hrefs = [i["href"] for i in assets.get("collection", {}).get("items", [])
-                           if i["href"].lower().endswith((".jpg", ".jpeg"))]
-                  if not hrefs:
-                      return False
-                  img_url = hrefs[0]
-                  for h in hrefs:
-                      if "medium" in h or "1024" in h:
-                          img_url = h; break
-                  req3 = urllib.request.Request(img_url, headers={"User-Agent": "AstrofotoTool/1.0"})
-                  with urllib.request.urlopen(req3, timeout=20) as r3:
-                      imgdata = r3.read()
-                  if len(imgdata) > 5000:
-                      with open(dest, "wb") as f:
-                          f.write(imgdata)
-                      print(f"  ✓ {dest} ({len(imgdata)//1024}KB)")
-                      return True
-                  return False
-              except Exception as e:
-                  print(f"  ✗ {dest}: {e}")
-                  return False
-          PYEOF
+print(f"\n=== OK={ok}  FAIL={fail} ===")
+PYEOF
 
       - name: Commit images
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add img/
-          git diff --staged --quiet || git commit -m "Astro images NASA API [automated]"
+          git diff --staged --quiet || git commit -m "Astro images NASA v4 [automated]"
           git push
