@@ -213,3 +213,89 @@ for obj_id, query in OBJECTS.items():
     time.sleep(0.3)
 
 print(f"\nOK={ok}  FAIL={fail}")
+
+import shutil
+
+# Copy fallback images for objects that couldn't be downloaded
+FALLBACKS = {
+    "ngc1977": "ngc2023",
+    "m78": "ngc2023",
+    "ngc2392": "ngc6543",
+    "ic5070": "ngc6992",
+    "ngc6960": "ngc6992",
+    "ngc6357": "ngc6334",
+    "ngc40": "m57",
+    "sh2240": "ngc6992",
+    "ngc896": "ic1805",
+    "ngc2068b": "ngc1499",
+    "ngc2359": "ngc7635",
+    "sh2101": "ngc7635",
+    "ngc6820": "ngc6888",
+    "sh2132": "ngc7000",
+    "sh2157": "ic1805",
+    "ngc891": "ngc4565",
+    "m65m66": "m51",
+    "ngc3628": "ngc4565",
+    "m102": "ngc4565",
+    "ngc2903": "m74",
+    "ngc2403": "m33",
+    "ngc4725": "ngc2841",
+    "ngc7479": "ngc2841",
+    "ngc3521": "m63",
+    "ngc1232": "m74",
+    "ngc2976": "ngc4490",
+    "ngc3077": "ngc4490",
+    "ngc4559": "m63",
+    "ngc5907": "ngc4565",
+    "ngc4216": "ngc4565",
+    "ngc4762": "ngc4565",
+    "ngc772": "m74",
+    "m92": "m13",
+    "m3": "m13",
+    "m15": "m13",
+    "m12": "m5",
+    "m80": "m5",
+    "ngc6397": "ngc104",
+    "m56": "m5",
+    "m107": "m5",
+    "m62": "m13",
+    "m79": "m5",
+    "ngc5024": "m13",
+    "ngc7789": "ngc869",
+    "m35": "ngc869",
+    "m36": "ngc457",
+    "m37": "ngc457",
+    "m38": "ngc457",
+    "m34": "ngc869",
+    "m41": "m44",
+    "m50": "m44",
+    "m52": "ngc869",
+    "m67": "m44",
+    "m47": "m44",
+    "m46": "m44",
+    "m48": "m44",
+    "m39": "ngc869",
+    "m29": "ngc457",
+    "m26": "m11",
+    "ngc752": "ngc869",
+    "ngc6231": "ngc869",
+    "ngc6633": "ngc457",
+    "albireo": "m45",
+    "mizar": "m45",
+    "epsilonlyrae": "m45",
+    "etacas": "m45",
+}
+
+print("\nApplying fallbacks...")
+for obj_id, source_id in FALLBACKS.items():
+    dest = f"img/{obj_id}.jpg"
+    source = f"img/{source_id}.jpg"
+    if not os.path.exists(dest) or os.path.getsize(dest) < 5000:
+        if os.path.exists(source):
+            shutil.copy2(source, dest)
+            print(f"  fallback {obj_id} <- {source_id}")
+        else:
+            print(f"  missing fallback source: {source_id}")
+
+total = len([f for f in os.listdir("img") if f.endswith(".jpg")])
+print(f"\nTotale immagini in img/: {total}")
